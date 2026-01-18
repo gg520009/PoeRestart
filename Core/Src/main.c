@@ -186,7 +186,7 @@ int main(void)
   {      
     /* USER CODE END WHILE */
     /* USER CODE BEGIN 3 */
-    //HAL_UART_Transmit_DMA(&huart1, (uint8_t*)&uADC_T2P_Average, 4);
+
     /* State Machine Logic */
     if (uTIM1_Interrupt_Flag == 1)
     {
@@ -198,6 +198,13 @@ int main(void)
       uADC_Value_T2P = uADC_Value[0]&0x0FFF;
       uADC_Value_PWGD = uADC_Value[1]&0x0FFF;
 
+      static uint32_t usart_timer = 0;
+      usart_timer++;
+      if(usart_timer > 100000)
+      {
+    	  usart_timer = 0;
+    	  HAL_UART_Transmit_DMA(&huart1, (uint8_t*)&uADC_T2P_Average, 4);
+      }
 
       /* --- 2. State Machine --- */
       /* 10us tick base */
@@ -241,7 +248,9 @@ int main(void)
           else led_timer = 0;
           
           /* Check T2P (uADC_T2P_Average) */
-          uADC_Sum_T2P += uADC_Value_T2P;
+          //uADC_Sum_T2P += uADC_Value_T2P;
+          if(uADC_Value_T2P > 0x7ff) uADC_Sum_T2P += 0x7ff;
+          else uADC_Sum_T2P += 0;
           uADC_Count++;
           /* 8192 samples * 10us = 81.92ms */
           if(uADC_Count >= 8192)

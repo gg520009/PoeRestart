@@ -66,8 +66,8 @@ all: main-build
 main-build: stm32g030f6p6.elf secondary-outputs
 
 # Tool invocations
-stm32g030f6p6.elf stm32g030f6p6.map: $(OBJS) $(USER_OBJS) C:\Users\lixiaogang\Documents\stm32g030f6p6\STM32G030F6PX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "stm32g030f6p6.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m0plus -T"C:\Users\lixiaogang\Documents\stm32g030f6p6\STM32G030F6PX_FLASH.ld" --specs=nosys.specs -Wl,-Map="stm32g030f6p6.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+stm32g030f6p6.elf stm32g030f6p6.map: $(OBJS) $(USER_OBJS) C:\Users\lixiaogang\Documents\github\PoeRestart\STM32G030F6PX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "stm32g030f6p6.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m0plus -T"C:\Users\lixiaogang\Documents\github\PoeRestart\STM32G030F6PX_FLASH.ld" --specs=nosys.specs -Wl,-Map="stm32g030f6p6.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
