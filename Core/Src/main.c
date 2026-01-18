@@ -135,9 +135,8 @@ int main(void)
   MX_IWDG_Init();
   /* USER CODE BEGIN 2 */
   
-  /* Initial State: PA6 High (Hi-Z), PA7 Low */
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_SET); 
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_RESET);
+  /* Initial State: PA6 High, PA7 High */
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6|GPIO_PIN_7, GPIO_PIN_SET);
 
   /* Enable ADC DMA for 2 Channels */
   HAL_ADC_Start_DMA(&hadc1, (uint32_t*)uADC_Value, 2);
@@ -249,7 +248,7 @@ int main(void)
           
           /* Check T2P (uADC_T2P_Average) */
           //uADC_Sum_T2P += uADC_Value_T2P;
-          if(uADC_Value_T2P > 0x7ff) uADC_Sum_T2P += 0x7ff;
+          if(uADC_Value_T2P > 0x7ff) uADC_Sum_T2P += 0xfff;
           else uADC_Sum_T2P += 0;
           uADC_Count++;
           /* 8192 samples * 10us = 81.92ms */
@@ -284,8 +283,8 @@ int main(void)
           else led_timer = 0;
           
           /* PA6 High, PA7 High */
-          HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_SET);
-          HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_SET);
+          HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET);
+          HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_SET); //relay close and dcdc en
           break;
 
         case 4: /* Low Power / Fail Mode */
@@ -293,8 +292,8 @@ int main(void)
           LED_Control(0);
           
           /* PA6 Low, PA7 Low */
-          HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET);
-          HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_RESET);
+          HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_SET);
+          HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_RESET); //relay open and dcdc off
           break;
       }
     }
@@ -596,13 +595,17 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6|GPIO_PIN_7, GPIO_PIN_SET);
 
-  /*Configure GPIO pin Output Level */
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(led_GPIO_Port, led_Pin, GPIO_PIN_SET); /* Default OFF (High-Z) */
 
-  /* ... PA6/7 config ... */
+  /*Configure GPIO pins : PA6 PA7 */
+  GPIO_InitStruct.Pin = GPIO_PIN_6|GPIO_PIN_7;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pin : led_Pin */
   GPIO_InitStruct.Pin = led_Pin; 
