@@ -223,14 +223,16 @@ int main(void)
           if (uADC_Value_PWGD > 0x7ff) 
           {
              pwgd_debounce++;
+             HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET);//dcdc en
           } 
           else 
           {
-             if(pwgd_debounce > 100) pwgd_debounce -= 100;
+             if(pwgd_debounce > 10000) pwgd_debounce -= 10000; // 0.1s
+             HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_SET);//dcdc dis
           }
 
-          /* 200ms debounce = 200ms / 10us tick = 20000 ticks */
-          if (pwgd_debounce >= 20000) 
+          /* 3s debounce = 3s / 10us tick = 300000 ticks */
+          if (pwgd_debounce >= 310000) 
           {
             pwgd_debounce = 0;
             state_main = 2;
