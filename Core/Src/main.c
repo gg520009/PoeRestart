@@ -154,6 +154,7 @@ int main(void)
   uint8_t state_main = 1;
   //uint32_t state_timer = 0;
   uint32_t led_timer = 0;
+  uint32_t state4_timer = 0;
   uint32_t pwgd_debounce = 0;
 
   /* Force Enable Interrupts */
@@ -224,11 +225,13 @@ int main(void)
           {
              pwgd_debounce++;
              HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET);//dcdc en
+             HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_SET); //relay close
           } 
           else 
           {
-             if(pwgd_debounce > 10000) pwgd_debounce -= 10000; // 0.1s
+             if(pwgd_debounce > 1000) pwgd_debounce -= 1000; // 0.01s;3ms resume
              HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_SET);//dcdc dis
+             HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_RESET); //relay open
           }
 
           /* 3s debounce = 3s / 10us tick = 300000 ticks */
@@ -260,7 +263,7 @@ int main(void)
             uADC_Count = 0;
             uADC_Sum_T2P = 0;
 
-            if (uADC_T2P_Average > 819 && uADC_T2P_Average < 1229) /*20%~30%*/
+            if (uADC_T2P_Average > 2866 && uADC_T2P_Average < 3276) /*70%~80%*/
             //if (uADC_T2P_Average < 200) /*20%~30%*/
             {
                state_main = 3;
@@ -291,8 +294,13 @@ int main(void)
 
         case 4: /* Low Power / Fail Mode */
           /* LED Off */
-          LED_Control(0);
-          
+          state4_timer++;
+          if(state4_timer < 300000) LED_Control(0);
+          else
+          {
+        	  state4_timer = 0;
+        	  state_main = 1;
+          }
           /* PA6 Low, PA7 Low */
           HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_SET);
           HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_RESET); //relay open and dcdc off
