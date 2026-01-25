@@ -1,13 +1,71 @@
-PA0 T2P
-PA1 PWGD
-PB0 LED
-PB6 USART1_TX
-PA6 relay // 置高负载加上
-PA7 dcdc en
+# PoeRestart - PoE Power Controller
 
-1、PA0、PA1用作ADC采样，分别采样LTC4294的T2P、PWGD信号
-2、PB0接led用作信号指示
-3、PB3用作USART1_TX发送日志
-4、PA6和PA7配置为输出，开漏输出，PA6默认高电平，PA7默认为低电平；
-5、10us内设置一个状态机器：状态1，led 1秒闪一次，持续检测PA1电平，若持续高于1.5V，维持200ms以上切换为状态2；状态2，led 2s闪一次，通过T2P判定功率等级，若为71W，切换到状态3，否则切换到状态4；状态3，led 3秒闪一次，PA6置高，PA7置高；状态4，led关，PA6置低，PA7置低
+This project implements a Power over Ethernet (PoE) power management controller using an STM32 microcontroller. It is designed to interface with the **LTC4294** PD (Powered Device) interface controller to manage high-power negotiations (up to 71W) and control downstream power distribution safely.
 
+## Features
+
+- **Power Negotiation Monitoring**: continuously monitors the T2P and PWGD signals from the LTC4294 to determine the available power budget.
+- **Soft-Start & Sequence Control**: Manages the enable signals for the DC-DC converter and output relay to prevent inrush current and ensure stable startup.
+- **Status Indication**: LED blink patterns indicate the system's operating state (Waiting, Negotiating, Power Good, or Fault).
+- **Protection**: Includes an independent watchdog (IWDG) and fault detection logic to disconnect power in case of negotiation failure or instability.
+- **DMA-Optimized**: Uses DMA for ADC sampling and UART logging to minimize CPU usage.
+
+## Hardware Configuration
+
+The system is based on an STM32 microcontroller (e.g., STM32F0/G0 series) running at 64MHz (HSI/PLL).
+
+### Pinout Mapping
+
+| Pin | Function      | Type  | Description                                      |
+| --- | ------------- | ----- | ------------------------------------------------ |
+| PA0 | **T2P**       | ADC   | Sample LTC4294 T2P signal (Power availability)   |
+| PA1 | **PWGD**      | ADC   | Sample LTC4294 Power Good signal (>1.5V = Good)  |
+| PA6 | **DC-DC EN**  | Out   | DC-DC Enable Control (**Low** = Enable)          |
+| PA7 | **RELAY**     | Out   | Output Relay Control (**High** = Close/On)       |
+| PB0 | **LED**       | Out   | Status LED (Open-Drain, Low = On)                |
+| PB3 | **USART1_TX** | UART  | Debug Log Output (115200 bps)                    |
+
+## Software Logic
+
+The system runs a state machine on a 10µs time base.
+
+### State 1: Wait for Power Good
+- **Indicator**: Fast Blink (1 Hz / 0.5s ON, 0.5s OFF)
+- **Behavior**: Monitors `PA1` (PWGD).
+  - If PWGD > 1.5V, it tentatively enables the DC-DC and Relay.
+  - If PWGD remains stable for ~3 seconds, the system transitions to **State 2**.
+  - If PWGD is unstable, it keeps the output disabled.
+
+### State 2: Power Negotiation Check
+- **Indicator**: Medium Blink (0.5 Hz / 1s ON, 1s OFF)
+- **Behavior**: Analyzes the T2P signal on `PA0` to determine the allocated power.
+  - Collects 8192 samples (approx. 82ms window).
+  - Checks if the T2P average voltage corresponds to the **71W** Class (Approx. 2.3V - 2.6V).
+  - **Success**: If 71W is valid, transitions to **State 3**.
+  - **Failure**: If power negotiation fails (e.g., < 71W), transitions to **State 4**.
+
+### State 3: Normal Operation (High Power)
+- **Indicator**: Slow Blink (~0.16 Hz / 3s ON, 3s OFF)
+- **Behavior**: 
+  - **Power Output**: **Enabled** (PA6 Low, PA7 High).
+  - The system remains in this state as long as power is stable.
+
+### State 4: Fault / Low Power Mode
+- **Indicator**: LED Off
+- **Behavior**:
+  - **Power Output**: **Disabled** (PA6 High, PA7 Low).
+  - The system stays in this state for 3 seconds before automatically resetting to **State 1** to retry.
+
+## Build Instructions
+
+This project is generated with STM32CubeMX and can be built using **STM32CubeIDE**.
+
+1. Open the project directory in STM32CubeIDE.
+2. Ensure the correct MCU target is selected in the project settings.
+3. Build the project (Ctrl+B).
+4. Flash the binary to the target board.
+
+## License
+
+This project is licensed under the terms provided in the LICENSE file. If no license is present, it is provided AS-IS.
+Copyright (c) 2026 STMicroelectronics.
