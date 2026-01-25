@@ -246,10 +246,10 @@ int main(void)
 
         case 2: /* Check T2P Power Level */
           /* LED: 2s Blink (1s ON / 1s OFF) -> 100000 ticks */
-          led_timer++;
-          if (led_timer < 100000) LED_Control(1);
-          else if (led_timer < 200000) LED_Control(0);
-          else led_timer = 0;
+         // led_timer++;
+          //if (led_timer < 100000) LED_Control(1);
+          //else if (led_timer < 200000) LED_Control(0);
+          //else led_timer = 0;
           
           /* Check T2P (uADC_T2P_Average) */
           //uADC_Sum_T2P += uADC_Value_T2P;
@@ -295,7 +295,7 @@ int main(void)
         case 4: /* Low Power / Fail Mode */
           /* LED Off */
           state4_timer++;
-          if(state4_timer < 300000) LED_Control(0);
+          if(state4_timer < 300000) LED_Control(0);  // delay 3s to renegotiate with pse
           else
           {
         	  state4_timer = 0;
