@@ -136,7 +136,8 @@ int main(void)
   /* USER CODE BEGIN 2 */
   
   /* Initial State: PA6 High, PA7 High */
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6|GPIO_PIN_7, GPIO_PIN_SET);
+  RELAY_CLOSE();
+  DCDC_DISABLE();
 
   /* Enable ADC DMA for 2 Channels */
   HAL_ADC_Start_DMA(&hadc1, (uint32_t*)uADC_Value, 2);
@@ -224,14 +225,18 @@ int main(void)
           if (uADC_Value_PWGD > 0x7ff) 
           {
              pwgd_debounce++;
-             HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET);//dcdc en
-             HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_SET); //relay close
+             //HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET);//dcdc en
+             //HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_SET); //relay close
+             RELAY_CLOSE();
+             DCDC_ENABLE();
           } 
           else 
           {
              if(pwgd_debounce > 1000) pwgd_debounce -= 1000; // 0.01s;3ms resume
-             HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_SET);//dcdc dis
-             HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_RESET); //relay open
+             //HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_SET);//dcdc dis
+             //HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_RESET); //relay open
+             //RELAY_OPEN();
+             DCDC_DISABLE();
           }
 
           /* 3s debounce = 3s / 10us tick = 300000 ticks */
@@ -288,8 +293,9 @@ int main(void)
           else led_timer = 0;
           
           /* PA6 High, PA7 High */
-          HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET);
-          HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_SET); //relay close and dcdc en
+          /* PA6 High, PA7 High */
+          RELAY_CLOSE();
+          DCDC_ENABLE(); //relay close and dcdc en
           break;
 
         case 4: /* Low Power / Fail Mode */
@@ -302,8 +308,9 @@ int main(void)
         	  state_main = 1;
           }
           /* PA6 Low, PA7 Low */
-          HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_SET);
-          HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_RESET); //relay open and dcdc off
+          /* PA6 Low, PA7 Low */
+          RELAY_OPEN();
+          DCDC_DISABLE(); //relay open and dcdc off
           break;
       }
     }
