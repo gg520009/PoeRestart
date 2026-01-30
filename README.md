@@ -20,6 +20,9 @@ The system is based on an STM32 microcontroller (e.g., STM32F0/G0 series) runnin
 | --- | ------------- | ----- | ------------------------------------------------ |
 | PA0 | **T2P**       | ADC   | Sample LTC4294 T2P signal (Power availability)   |
 | PA1 | **PWGD**      | ADC   | Sample LTC4294 Power Good signal (>1.5V = Good)  |
+| PA2 | **Powerkeyin**| In    | Input Control Signal (Active Low/High Config)    |
+| PA4 | **LB16F1**    | Out   | LED Control Indicator (Follows Powerkeyinstate)  |
+| PA5 | **AP**        | Out   | AP Sequence Output Control                       |
 | PA6 | **DC-DC EN**  | Out   | DC-DC Enable Control (**Low** = Enable)          |
 | PA7 | **RELAY**     | Out   | Output Relay Control (**High** = Close/On)       |
 | PB0 | **LED**       | Out   | Status LED (Open-Drain, Low = On)                |
@@ -30,6 +33,7 @@ The system is based on an STM32 microcontroller (e.g., STM32F0/G0 series) runnin
 The system runs a state machine on a 10µs time base.
 
 ### State 1: Wait for Power Good
+
 - **Indicator**: Fast Blink (1 Hz / 0.5s ON, 0.5s OFF)
 - **Behavior**: Monitors `PA1` (PWGD).
   - If PWGD > 1.5V, it tentatively enables the DC-DC and Relay.
@@ -37,6 +41,7 @@ The system runs a state machine on a 10µs time base.
   - If PWGD is unstable, it keeps the output disabled.
 
 ### State 2: Power Negotiation Check
+
 - **Indicator**: Medium Blink (0.5 Hz / 1s ON, 1s OFF)
 - **Behavior**: Analyzes the T2P signal on `PA0` to determine the allocated power.
   - Collects 8192 samples (approx. 82ms window).
@@ -45,16 +50,40 @@ The system runs a state machine on a 10µs time base.
   - **Failure**: If power negotiation fails (e.g., < 71W), transitions to **State 4**.
 
 ### State 3: Normal Operation (High Power)
+
 - **Indicator**: Slow Blink (~0.16 Hz / 3s ON, 3s OFF)
-- **Behavior**: 
+- **Behavior**:
   - **Power Output**: **Enabled** (PA6 Low, PA7 High).
   - The system remains in this state as long as power is stable.
 
 ### State 4: Fault / Low Power Mode
+
 - **Indicator**: LED Off
 - **Behavior**:
   - **Power Output**: **Disabled** (PA6 High, PA7 Low).
-  - The system stays in this state for 3 seconds before automatically resetting to **State 1** to retry.
+  - The system stays in this state for 3 seconds before resetting to **State 1**.
+
+### Additional Control Logic (Parallel)
+
+The system runs additional control tasks in parallel with the main state machine:
+
+#### 1. Powerkeyin Control (PA2)
+
+- **Input Monitoring**: Continuously monitors `PA2` with a **500ms software debounce** filter.
+- **State Update**: Updates global `Powerkeyinstate` (1 = Active/High, 0 = Inactive/Low).
+
+#### 2. LB16F1 Indicator (PA4)
+
+- Directly reflects the `Powerkeyinstate`.
+- **ON**: `Powerkeyinstate` == 1.
+- **OFF**: `Powerkeyinstate` == 0.
+
+#### 3. AP Sequence Control (PA5)
+
+Non-blocking sequence trigger on `Powerkeyinstate` transitions:
+
+- **0 -> 1 Transition**: `OFF (10ms)` -> `ON (300ms)` -> `OFF (10ms)` -> `IDLE (OFF)`.
+- **1 -> 0 Transition**: `OFF (10ms)` -> `ON (8000ms)` -> `OFF (10ms)` -> `IDLE (OFF)`.
 
 ## Build Instructions
 

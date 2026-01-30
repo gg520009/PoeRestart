@@ -53,6 +53,12 @@ volatile uint32_t uADC_Processing_Value = 0; /* New variable for user processing
 volatile uint32_t uADC_Sum = 0; /* Accumulator for averaging */
 volatile uint32_t uADC_Average = 0; /* Final averaged value */
 volatile uint32_t uLED_Count = 0; /* Counter for LED timing */
+volatile uint8_t Powerkeyin = 0;
+volatile uint8_t Powerkeyinstate = 0;
+volatile uint8_t Powerkeyinstate_prev = 0;
+volatile uint8_t ap_seq_state = 0;
+volatile uint32_t ap_seq_timer = 0;
+volatile uint32_t ap_target_delay = 0;
 ADC_HandleTypeDef hadc1;
 DMA_HandleTypeDef hdma_adc1;
 DMA_HandleTypeDef hdma_usart1_tx;
@@ -138,6 +144,8 @@ int main(void)
   /* Initial State: PA6 High, PA7 High */
   RELAY_CLOSE();
   DCDC_DISABLE();
+  LB16F1_LED_OFF();
+  AP_OFF(); 
 
   /* Enable ADC DMA for 2 Channels */
   HAL_ADC_Start_DMA(&hadc1, (uint32_t*)uADC_Value, 2);
@@ -193,11 +201,104 @@ int main(void)
     {
       IWDG->KR = 0xAAAA; /* Feed Dog */
       uTIM1_Interrupt_Flag = 0;
+      /*AP power on off control*/
+      Powerkeyin = HAL_GPIO_ReadPin(Powerkeyin_GPIO_Port, Powerkeyin_Pin);
       //HAL_UART_Transmit(&huart1, (uint8_t*)"int\n", 4, 100); 
+
+      /* Debounce Logic: 500ms @ 10us tick = 50000 ticks */
+      static uint32_t pk_timer_low = 0;
+      static uint32_t pk_timer_high = 0;
+
+      if (Powerkeyin == 0)
+      {
+          pk_timer_high = 0;
+          pk_timer_low++;
+          if (pk_timer_low >= 50000)
+          {
+              Powerkeyinstate = 1; /* ON */
+              pk_timer_low = 50000;
+          }
+      }
+      else
+      {
+          pk_timer_low = 0;
+          pk_timer_high++;
+          if (pk_timer_high >= 50000)
+          {
+              Powerkeyinstate = 0; /* OFF */
+              pk_timer_high = 50000;
+          }
+      }
+
+      if (Powerkeyinstate == 1)
+      {
+          LB16F1_LED_ON();
+      }
+      else
+      {
+          LB16F1_LED_OFF();
+      }
+
+      /* AP Sequence Logic */
+      /* Edge Detection */
+      if (Powerkeyinstate != Powerkeyinstate_prev)
+      {
+          if (Powerkeyinstate == 1) /* 0 -> 1 */
+          {
+               ap_target_delay = 30000; /* 300ms */
+          }
+          else /* 1 -> 0 */
+          {
+               ap_target_delay = 800000; /* 8000ms */
+          }
+          Powerkeyinstate_prev = Powerkeyinstate;
+          ap_seq_state = 1; /* Start Sequence */
+          ap_seq_timer = 0;
+      }
+
+      /* State Machine */
+      switch (ap_seq_state)
+      {
+          case 0: /* IDLE */
+              break;
+
+          case 1: /* OFF 10ms */
+              AP_OFF();
+              ap_seq_timer++;
+              if (ap_seq_timer >= 1000) /* 10ms */
+              {
+                  ap_seq_timer = 0;
+                  ap_seq_state = 2;
+              }
+              break;
+
+          case 2: /* ON Delay */
+              AP_ON();
+              ap_seq_timer++;
+              if (ap_seq_timer >= ap_target_delay)
+              {
+                  ap_seq_timer = 0;
+                  ap_seq_state = 3;
+              }
+              break;
+
+          case 3: /* OFF 10ms */
+              AP_OFF();
+              ap_seq_timer++;
+              if (ap_seq_timer >= 1000) /* 10ms */
+              {
+                  ap_seq_timer = 0;
+                  ap_seq_state = 0; /* Back to IDLE */
+              }
+              break;
+      }
+
       /* --- 1. Data Processing (Averaging) --- */
       /* Direct assignment (uint16_t to uint32_t auto-promotes correctly) */
       uADC_Value_T2P = uADC_Value[0]&0x0FFF;
       uADC_Value_PWGD = uADC_Value[1]&0x0FFF;
+
+
 
       static uint32_t usart_timer = 0;
       usart_timer++;
@@ -291,7 +392,7 @@ int main(void)
           if (led_timer < 300000) LED_Control(1);
           else if (led_timer < 600000) LED_Control(0);
           else led_timer = 0;
-          
+          //mcu will not power off,case 3 should return to case 1 after 10s//
           /* PA6 High, PA7 High */
           /* PA6 High, PA7 High */
           RELAY_CLOSE();
@@ -618,10 +719,16 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(led_GPIO_Port, led_Pin, GPIO_PIN_SET); /* Default OFF (High-Z) */
 
   /*Configure GPIO pins : PA6 PA7 */
-  GPIO_InitStruct.Pin = GPIO_PIN_6|GPIO_PIN_7;
+  GPIO_InitStruct.Pin = GPIO_PIN_6|GPIO_PIN_7|GPIO_PIN_4|GPIO_PIN_5;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PA2 (Powerkeyin) */
+  GPIO_InitStruct.Pin = GPIO_PIN_2;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pin : led_Pin */

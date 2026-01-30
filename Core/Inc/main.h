@@ -68,6 +68,15 @@ void Error_Handler(void);
 //#define DCDC_DISABLE()  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_SET)
 #define DCDC_ENABLE()   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_SET)
 #define DCDC_DISABLE()  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET)
+
+#define Powerkeyin_Pin GPIO_PIN_2
+#define Powerkeyin_GPIO_Port GPIOA
+
+#define LB16F1_LED_ON()     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET)
+#define LB16F1_LED_OFF()    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET)
+
+#define AP_ON()             HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET)
+#define AP_OFF()            HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET)
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
