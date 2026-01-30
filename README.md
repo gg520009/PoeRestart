@@ -1,5 +1,7 @@
 # PoeRestart - PoE Power Controller
 
+[中文版](readme-zh.md)
+
 This project implements a Power over Ethernet (PoE) power management controller using an STM32 microcontroller. It is designed to interface with the **LTC4294** PD (Powered Device) interface controller to manage high-power negotiations (up to 71W) and control downstream power distribution safely.
 
 ## Features
