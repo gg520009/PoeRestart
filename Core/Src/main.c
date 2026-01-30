@@ -200,6 +200,7 @@ int main(void)
     /* State Machine Logic */
     if (uTIM1_Interrupt_Flag == 1)
     {
+      DEBUG_PIN_HIGH();
       IWDG->KR = 0xAAAA; /* Feed Dog */
       uTIM1_Interrupt_Flag = 0;
 
@@ -299,6 +300,7 @@ int main(void)
       }
 
       /*UART send for debug*/
+      #ifdef MY_DE_BUG
       static uint32_t usart_timer = 0;
       usart_timer++;
       if(usart_timer > 100000)
@@ -306,6 +308,7 @@ int main(void)
     	  usart_timer = 0;
     	  HAL_UART_Transmit_DMA(&huart1, (uint8_t*)&uADC_T2P_Average, 4);
       }
+      #endif
 
       /*POE power classification and relay DCDC enable control*/
       switch (state_main)
@@ -430,6 +433,7 @@ int main(void)
     }
     /* */
     IWDG->KR = 0xAAAA; /* Feed Dog */
+    DEBUG_PIN_LOW();
   }
   /* USER CODE END 3 */
   /* USER CODE END 3 */
@@ -743,6 +747,17 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  #ifdef MY_DE_BUG
+  /*Configure GPIO pin : PA12 (Debug Measurement) */
+  GPIO_InitStruct.Pin = GPIO_PIN_12;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  #endif
+
+  /*Configure GPIO pin : led_Pin */
 
   /*Configure GPIO pin : led_Pin */
   GPIO_InitStruct.Pin = led_Pin; 
