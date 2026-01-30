@@ -165,6 +165,7 @@ int main(void)
   uint32_t led_timer = 0;
   uint32_t state4_timer = 0;
   uint32_t pwgd_debounce = 0;
+  uint32_t pwgd_fault_timer = 0; /* Timer for State 3 fault detection */
 
   /* Force Enable Interrupts */
   /* Reconfigure Priorities to prevent starvation */
@@ -201,10 +202,14 @@ int main(void)
     {
       IWDG->KR = 0xAAAA; /* Feed Dog */
       uTIM1_Interrupt_Flag = 0;
-      /*AP power on off control*/
+
+      /*Input Sampling*/
       Powerkeyin = HAL_GPIO_ReadPin(Powerkeyin_GPIO_Port, Powerkeyin_Pin);
+      uADC_Value_T2P = uADC_Value[0]&0x0FFF;
+      uADC_Value_PWGD = uADC_Value[1]&0x0FFF;
       //HAL_UART_Transmit(&huart1, (uint8_t*)"int\n", 4, 100); 
 
+/*AP power on off control*/
       /* Debounce Logic: 500ms @ 10us tick = 50000 ticks */
       static uint32_t pk_timer_low = 0;
       static uint32_t pk_timer_high = 0;
@@ -229,7 +234,7 @@ int main(void)
               pk_timer_high = 50000;
           }
       }
-
+      /*LB16F1 Key led control*/
       if (Powerkeyinstate == 1)
       {
           LB16F1_LED_ON();
@@ -293,13 +298,7 @@ int main(void)
               break;
       }
 
-      /* --- 1. Data Processing (Averaging) --- */
-      /* Direct assignment (uint16_t to uint32_t auto-promotes correctly) */
-      uADC_Value_T2P = uADC_Value[0]&0x0FFF;
-      uADC_Value_PWGD = uADC_Value[1]&0x0FFF;
-
-
-
+      /*UART send for debug*/
       static uint32_t usart_timer = 0;
       usart_timer++;
       if(usart_timer > 100000)
@@ -308,11 +307,7 @@ int main(void)
     	  HAL_UART_Transmit_DMA(&huart1, (uint8_t*)&uADC_T2P_Average, 4);
       }
 
-      /* --- 2. State Machine --- */
-      /* 10us tick base */
-
-      // 必须加取地址符 &
-
+      /*POE power classification and relay DCDC enable control*/
       switch (state_main)
       {
         case 1: /* Wait for PWGD > 1.5V */
@@ -374,6 +369,7 @@ int main(void)
             {
                state_main = 3;
                led_timer = 0;
+               pwgd_fault_timer = 0; /* Reset fault timer on entry */
                HAL_UART_Transmit_DMA(&huart1, (uint8_t*)"71W->S3\n", 8);
               
             }
@@ -392,6 +388,23 @@ int main(void)
           if (led_timer < 300000) LED_Control(1);
           else if (led_timer < 600000) LED_Control(0);
           else led_timer = 0;
+          
+          /* PWGD Fault Monitor: Reset if < 1.6V for 3s */
+          if (uADC_Value_PWGD < 0x7ff) 
+          {
+              pwgd_fault_timer++;
+              if (pwgd_fault_timer >= 300000) /* 3s * 100kHz */
+              {
+                  pwgd_fault_timer = 0;
+                  state_main = 1; /* Reset */
+                  //HAL_UART_Transmit_DMA(&huart1, (uint8_t*)"PWGD Fail->S1\n", 14);
+              }
+          }
+          else
+          {
+              pwgd_fault_timer = 0;
+          }
+
           //mcu will not power off,case 3 should return to case 1 after 10s//
           /* PA6 High, PA7 High */
           /* PA6 High, PA7 High */
