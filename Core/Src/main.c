@@ -40,7 +40,7 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-volatile uint8_t uTIM1_Interrupt_Flag = 0; /* Flag for TIM1 10us Interrupt */
+volatile uint8_t uTIM1_Interrupt_Flag = 0; /* Flag for TIM1 50us Interrupt */
 volatile uint16_t uADC_Value[2] = {0}; /* Changed to 16-bit to match DMA HalfWord alignment */
 volatile uint32_t uADC_T2P_Average = 0; 
 volatile uint32_t uADC_PWGD_Average = 0;
@@ -211,7 +211,7 @@ int main(void)
       //HAL_UART_Transmit(&huart1, (uint8_t*)"int\n", 4, 100); 
 
 /*AP power on off control*/
-      /* Debounce Logic: 500ms @ 10us tick = 50000 ticks */
+      /* Debounce Logic: 500ms @ 50us tick = 10000 ticks */
       static uint32_t pk_timer_low = 0;
       static uint32_t pk_timer_high = 0;
 
@@ -219,20 +219,20 @@ int main(void)
       {
           pk_timer_high = 0;
           pk_timer_low++;
-          if (pk_timer_low >= 50000)
+          if (pk_timer_low >= 10000)
           {
               Powerkeyinstate = 1; /* ON */
-              pk_timer_low = 50000;
+              pk_timer_low = 10000;
           }
       }
       else
       {
           pk_timer_low = 0;
           pk_timer_high++;
-          if (pk_timer_high >= 50000)
+          if (pk_timer_high >= 10000)
           {
               Powerkeyinstate = 0; /* OFF */
-              pk_timer_high = 50000;
+              pk_timer_high = 10000;
           }
       }
       /*LB16F1 Key led control*/
@@ -251,11 +251,11 @@ int main(void)
       {
           if (Powerkeyinstate == 1) /* 0 -> 1 */
           {
-               ap_target_delay = 30000; /* 300ms */
+               ap_target_delay = 6000; /* 300ms */
           }
           else /* 1 -> 0 */
           {
-               ap_target_delay = 800000; /* 8000ms */
+               ap_target_delay = 160000; /* 8000ms */
           }
           Powerkeyinstate_prev = Powerkeyinstate;
           ap_seq_state = 1; /* Start Sequence */
@@ -271,7 +271,7 @@ int main(void)
           case 1: /* OFF 10ms */
               AP_OFF();
               ap_seq_timer++;
-              if (ap_seq_timer >= 1000) /* 10ms */
+              if (ap_seq_timer >= 200) /* 10ms */
               {
                   ap_seq_timer = 0;
                   ap_seq_state = 2;
@@ -291,7 +291,7 @@ int main(void)
           case 3: /* OFF 10ms */
               AP_OFF();
               ap_seq_timer++;
-              if (ap_seq_timer >= 1000) /* 10ms */
+              if (ap_seq_timer >= 200) /* 10ms */
               {
                   ap_seq_timer = 0;
                   ap_seq_state = 0; /* Back to IDLE */
@@ -314,10 +314,10 @@ int main(void)
       switch (state_main)
       {
         case 1: /* Wait for PWGD > 1.5V */
-          /* LED: 1s Blink (500ms ON / 500ms OFF) - 100kHz * 0.5s = 50000 ticks */
+          /* LED: 1s Blink (500ms ON / 500ms OFF) - 20kHz * 0.5s = 10000 ticks */
           led_timer++;
-          if (led_timer < 50000) LED_Control(1); /* ON */
-          else if (led_timer < 100000) LED_Control(0); /* OFF */
+          if (led_timer < 10000) LED_Control(1); /* ON */
+          else if (led_timer < 20000) LED_Control(0); /* OFF */
           else led_timer = 0;
 
           /* PWGD Check: > 1.5V (~1861 @ 3.3V) */
@@ -331,15 +331,15 @@ int main(void)
           } 
           else 
           {
-             if(pwgd_debounce > 1000) pwgd_debounce -= 1000; // 0.01s;3ms resume
+             if(pwgd_debounce > 200) pwgd_debounce -= 200; // 0.01s;3ms resume
              //HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_SET);//dcdc dis
              //HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_RESET); //relay open
              //RELAY_OPEN();
              DCDC_DISABLE();
           }
 
-          /* 3s debounce = 3s / 10us tick = 300000 ticks */
-          if (pwgd_debounce >= 310000) 
+          /* 3s debounce = 3s / 50us tick = 60000 ticks */
+          if (pwgd_debounce >= 62000) 
           {
             pwgd_debounce = 0;
             state_main = 2;
@@ -360,7 +360,7 @@ int main(void)
           if(uADC_Value_T2P > 0x7ff) uADC_Sum_T2P += 0xfff;
           else uADC_Sum_T2P += 0;
           uADC_Count++;
-          /* 8192 samples * 10us = 81.92ms */
+          /* Count 8192 samples (unchanged) * 50us = 409.6ms */
           if(uADC_Count >= 8192)
           {
             uADC_T2P_Average = uADC_Sum_T2P >> 13;
@@ -386,17 +386,17 @@ int main(void)
           break;
 
         case 3: /* 71W Mode */
-          /* LED: 3s Blink (1.5s ON / 1.5s OFF) - 1.5s / 10us = 150000 ticks */
+          /* LED: 3s Blink (1.5s ON / 1.5s OFF) - 1.5s / 50us = 30000 ticks */
           led_timer++;
-          if (led_timer < 300000) LED_Control(1);
-          else if (led_timer < 600000) LED_Control(0);
+          if (led_timer < 60000) LED_Control(1);
+          else if (led_timer < 120000) LED_Control(0);
           else led_timer = 0;
           
           /* PWGD Fault Monitor: Reset if < 1.6V for 3s */
           if (uADC_Value_PWGD < 0x7ff) 
           {
               pwgd_fault_timer++;
-              if (pwgd_fault_timer >= 300000) /* 3s * 100kHz */
+              if (pwgd_fault_timer >= 60000) /* 3s * 20kHz */
               {
                   pwgd_fault_timer = 0;
                   state_main = 1; /* Reset */
@@ -418,7 +418,7 @@ int main(void)
         case 4: /* Low Power / Fail Mode */
           /* LED Off */
           state4_timer++;
-          if(state4_timer < 300000) LED_Control(0);  // delay 3s to renegotiate with pse
+          if(state4_timer < 60000) LED_Control(0);  // delay 3s to renegotiate with pse
           else
           {
         	  state4_timer = 0;
@@ -589,7 +589,7 @@ static void MX_TIM1_Init(void)
   htim1.Instance = TIM1;
   htim1.Init.Prescaler = 63; /* 64MHz / 64 = 1MHz */
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 9;      /* 1MHz / 10 = 100kHz (10us) */
+  htim1.Init.Period = 49;      /* 1MHz / 50 = 20kHz (50us) */
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;

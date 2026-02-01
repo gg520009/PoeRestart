@@ -78,7 +78,7 @@ void Error_Handler(void);
 #define AP_ON()             HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET)
 #define AP_OFF()            HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET)
 
-//#define MY_DE_BUG
+#define MY_DE_BUG
 #ifdef MY_DE_BUG
 #define DEBUG_PIN_HIGH() HAL_GPIO_WritePin(GPIOA, GPIO_PIN_12, GPIO_PIN_SET)
 #define DEBUG_PIN_LOW()  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_12, GPIO_PIN_RESET)
