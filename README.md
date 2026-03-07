@@ -1,102 +1,102 @@
-# PoeRestart - PoE Power Controller
+# PoeRestart - PoE 电源控制器
 
-[中文版](readme-zh.md)
+[English Version](README-EN.md)
 
-This project implements a Power over Ethernet (PoE) power management controller using an STM32 microcontroller. It is designed to interface with the **LTC4294** PD (Powered Device) interface controller to manage high-power negotiations (up to 71W) and control downstream power distribution safely.
+本项目基于 STM32 微控制器实现了一个 PoE (Power over Ethernet) 电源管理控制器。设计用于配合 **LTC4294** PD (Powered Device) 接口控制器，管理大功率协商（高达 71W）并安全控制下游电源分配。
 
-## Features
+## 功能特性
 
-- **Power Negotiation Monitoring**: continuously monitors the T2P and PWGD signals from the LTC4294 to determine the available power budget.
-- **Soft-Start & Sequence Control**: Manages the enable signals for the DC-DC converter and output relay to prevent inrush current and ensure stable startup.
-- **Status Indication**: LED blink patterns indicate the system's operating state (Waiting, Negotiating, Power Good, or Fault).
-- **Protection**: Includes an independent watchdog (IWDG) and fault detection logic to disconnect power in case of negotiation failure or instability.
-- **DMA-Optimized**: Uses DMA for ADC sampling and UART logging to minimize CPU usage.
+- **功率协商监控**: 持续监控 LTC4294 的 T2P 和 PWGD 信号，以确定可用功率预算。
+- **软启动与时序控制**: 管理 DC-DC 转换器和输出继电器的使能信号，防止浪涌电流并确保启动稳定。
+- **状态指示**:通过 LED 闪烁模式指示系统运行状态（等待、协商、电源正常或故障）。
+- **保护机制**: 包含独立看门狗 (IWDG) 和故障检测逻辑，在协商失败或不稳定时断开电源。
+- **DMA 优化**: 使用 DMA 进行 ADC 采样和 UART 日志记录，以最大限度地减少 CPU 占用。
 
-## Hardware Configuration
+## 硬件配置
 
-The system is based on an STM32 microcontroller (e.g., STM32F0/G0 series) running at 64MHz (HSI/PLL).
+系统基于运行在 64MHz (HSI/PLL) 的 STM32 微控制器（如 STM32F0/G0 系列）。
 
-### Pinout Mapping
+### 引脚映射
 
-| Pin | Function      | Type  | Description                                      |
-| --- | ------------- | ----- | ------------------------------------------------ |
-| PA0 | **T2P**       | ADC   | Sample LTC4294 T2P signal (Power availability)   |
-| PA1 | **PWGD**      | ADC   | Sample LTC4294 Power Good signal (>1.5V = Good)  |
-| PA2 | **Powerkeyin**| In    | Input Control Signal (Active Low/High Config)    |
-| PA4 | **LB16F1**    | Out   | LED Control Indicator (Follows Powerkeyinstate)  |
-| PA5 | **AP**        | Out   | AP Sequence Output Control                       |
-| PA6 | **DC-DC EN**  | Out   | DC-DC Enable Control (**Low** = Enable)          |
-| PA7 | **RELAY**     | Out   | Output Relay Control (**High** = Close/On)       |
-| PB0 | **LED**       | Out   | Status LED (Open-Drain, Low = On)                |
-| PB3 | **USART1_TX** | UART  | Debug Log Output (115200 bps)                    |
+| 引脚 | 功能 | 类型 | 描述 |
+| --- | --- | --- | --- |
+| PA0 | **T2P** | ADC | 采样 LTC4294 T2P 信号（功率可用性） |
+| PA1 | **PWGD** | ADC | 采样 LTC4294 Power Good 信号 (>1.5V = 正常) |
+| PA2 | **Powerkeyin**| In | 输入控制信号 (配置为高/低电平有效) |
+| PA4 | **LB16F1** | Out | LED 控制指示灯 (跟随 Powerkeyinstate 状态) |
+| PA5 | **AP** | Out | AP 时序输出控制 |
+| PA6 | **DC-DC EN** | Out | DC-DC 使能控制 (**低电平** = 使能) |
+| PA7 | **RELAY** | Out | 输出继电器控制 (**高电平** = 闭合/开启) |
+| PB0 | **LED** | Out | 状态 LED (开漏输出, 低电平 = 亮) |
+| PB3 | **USART1_TX** | UART | 调试日志输出 (115200 bps) |
 
-## Software Logic
+## 软件逻辑
 
-The system runs a state machine on a 10µs time base.
+系统在 10µs 时基上运行状态机。
 
-### State 1: Wait for Power Good
+### 状态 1: 等待 Power Good（电源正常）
 
-- **Indicator**: Fast Blink (1 Hz / 0.5s ON, 0.5s OFF)
-- **Behavior**: Monitors `PA1` (PWGD).
-  - If PWGD > 1.5V, it tentatively enables the DC-DC and Relay.
-  - If PWGD remains stable for ~3 seconds, the system transitions to **State 2**.
-  - If PWGD is unstable, it keeps the output disabled.
+- **指示**: 快闪 (1 Hz / 0.5s 亮, 0.5s 灭)
+- **行为**: 监控 `PA1` (PWGD)。
+  - 如果 PWGD > 1.5V，尝试使能 DC-DC 和继电器。
+  - 如果 PWGD 大约 3 秒保持稳定，系统进入 **状态 2**。
+  - 如果 PWGD 不稳定，保持输出禁用。
 
-### State 2: Power Negotiation Check
+### 状态 2: 功率协商检查
 
-- **Indicator**: Medium Blink (0.5 Hz / 1s ON, 1s OFF)
-- **Behavior**: Analyzes the T2P signal on `PA0` to determine the allocated power.
-  - Collects 8192 samples (approx. 82ms window).
-  - Checks if the T2P average voltage corresponds to the **71W** Class (Approx. 2.3V - 2.6V).
-  - **Success**: If 71W is valid, transitions to **State 3**.
-  - **Failure**: If power negotiation fails (e.g., < 71W), transitions to **State 4**.
+- **指示**: 中速闪烁 (0.5 Hz / 1s 亮, 1s 灭)
+- **行为**: 分析 `PA0` 上的 T2P 信号以确定分配的功率。
+  - 采集 8192 个样本（约 82ms 窗口）。
+  - 检查 T2P 平均电压是否对应 **71W** 等级 (约 2.3V - 2.6V)。
+  - **成功**: 如果 71W 有效，进入 **状态 3**。
+  - **失败**: 如果功率协商失败（例如 < 71W），进入 **状态 4**。
 
-### State 3: Normal Operation (High Power)
+### 状态 3: 正常运行 (高功率)
 
-- **Indicator**: Slow Blink (~0.16 Hz / 3s ON, 3s OFF)
-- **Behavior**:
-  - **Power Output**: **Enabled** (PA6 Low, PA7 High).
-  - The system remains in this state as long as power is stable.
+- **指示**: 慢闪 (~0.16 Hz / 3s 亮, 3s 灭)
+- **行为**:
+  - **电源输出**: **已使能** (PA6 低, PA7 高)。
+  - 只要电源稳定，系统将保持在此状态。
 
-### State 4: Fault / Low Power Mode
+### 状态 4: 故障 / 低功耗模式
 
-- **Indicator**: LED Off
-- **Behavior**:
-  - **Power Output**: **Disabled** (PA6 High, PA7 Low).
-  - The system stays in this state for 3 seconds before resetting to **State 1**.
+- **指示**: LED 灭
+- **行为**:
+  - **电源输出**: **已禁用** (PA6 高, PA7 低)。
+  - 系统在此状态停留 3 秒，然后重置为 **状态 1**。
 
-### Additional Control Logic (Parallel)
+### 附加控制逻辑 (并行)
 
-The system runs additional control tasks in parallel with the main state machine:
+系统与主状态机并行运行附加控制任务：
 
-#### 1. Powerkeyin Control (PA2)
+#### 1. Powerkeyin 控制 (PA2)
 
-- **Input Monitoring**: Continuously monitors `PA2` with a **500ms software debounce** filter.
-- **State Update**: Updates global `Powerkeyinstate` (1 = Active/High, 0 = Inactive/Low).
+- **输入监控**: 使用 **500ms 软件消抖** 滤波器持续监控 `PA2`。
+- **状态更新**: 更新全局变量 `Powerkeyinstate` (1 = 激活/高, 0 = 非激活/低)。
 
-#### 2. LB16F1 Indicator (PA4)
+#### 2. LB16F1 指示灯 (PA4)
 
-- Directly reflects the `Powerkeyinstate`.
-- **ON**: `Powerkeyinstate` == 1.
-- **OFF**: `Powerkeyinstate` == 0.
+- 直接反映 `Powerkeyinstate`。
+- **亮**: `Powerkeyinstate` == 1.
+- **灭**: `Powerkeyinstate` == 0.
 
-#### 3. AP Sequence Control (PA5)
+#### 3. AP 时序控制 (PA5)
 
-Non-blocking sequence trigger on `Powerkeyinstate` transitions:
+在 `Powerkeyinstate` 变迁时触发非阻塞时序：
 
-- **0 -> 1 Transition**: `OFF (10ms)` -> `ON (300ms)` -> `OFF (10ms)` -> `IDLE (OFF)`.
-- **1 -> 0 Transition**: `OFF (10ms)` -> `ON (8000ms)` -> `OFF (10ms)` -> `IDLE (OFF)`.
+- **0 -> 1 变迁**: `关 (10ms)` -> `开 (300ms)` -> `关 (10ms)` -> `空闲 (关)`.
+- **1 -> 0 变迁**: `关 (10ms)` -> `开 (8000ms)` -> `关 (10ms)` -> `空闲 (关)`.
 
-## Build Instructions
+## 编译说明
 
-This project is generated with STM32CubeMX and can be built using **STM32CubeIDE**.
+本项目使用 STM32CubeMX 生成，可以使用 **STM32CubeIDE** 进行编译。
 
-1. Open the project directory in STM32CubeIDE.
-2. Ensure the correct MCU target is selected in the project settings.
-3. Build the project (Ctrl+B).
-4. Flash the binary to the target board.
+1. 在 STM32CubeIDE 中打开项目目录。
+2. 确保项目设置中选择了正确的 MCU 目标。
+3. 编译项目 (Ctrl+B)。
+4. 将二进制文件烧录到目标板。
 
-## License
+## 许可证
 
-This project is licensed under the terms provided in the LICENSE file. If no license is present, it is provided AS-IS.
+本项目根据 LICENSE 文件中提供的条款进行许可。如果未提供许可证，则按原样提供 (AS-IS)。
 Copyright (c) 2026 STMicroelectronics.

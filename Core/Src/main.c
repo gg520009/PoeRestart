@@ -71,7 +71,7 @@ UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
 __attribute__((section(".version_info"))) __attribute__((used))
-const uint8_t version_string[] = "NP300B.0.40_V2.0_20260201";
+const uint8_t version_string[] = "NP300B.0.40_V3.0_20260307";
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
