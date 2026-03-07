@@ -32,24 +32,25 @@ The system is based on an STM32 microcontroller (e.g., STM32F0/G0 series) runnin
 
 ## Software Logic
 
-The system runs a state machine on a 10µs time base.
+The system runs a state machine on a 50µs time base.
 
 ### State 1: Wait for Power Good
 
 - **Indicator**: Fast Blink (1 Hz / 0.5s ON, 0.5s OFF)
 - **Behavior**: Monitors `PA1` (PWGD).
   - If PWGD > 1.5V, it tentatively enables the DC-DC and Relay.
-  - If PWGD remains stable for ~3 seconds, the system transitions to **State 2**.
+  - If PWGD remains stable (> 1.5V) for ~3 seconds, the system transitions to **State 2**.
   - If PWGD is unstable, it keeps the output disabled.
 
 ### State 2: Power Negotiation Check
 
-- **Indicator**: Medium Blink (0.5 Hz / 1s ON, 1s OFF)
+- **Indicator**: Bypassed in code due to short duration, maintains previous active state.
 - **Behavior**: Analyzes the T2P signal on `PA0` to determine the allocated power.
-  - Collects 8192 samples (approx. 82ms window).
-  - Checks if the T2P average voltage corresponds to the **71W** Class (Approx. 2.3V - 2.6V).
+  - Collects 8192 samples (approx. 410ms window).
+  - Uses threshold checking to determine the active high duty cycle of the signal.
+  - Checks if the T2P duty cycle corresponds to the **71W** Class (Approx. 70% - 80%).
   - **Success**: If 71W is valid, transitions to **State 3**.
-  - **Failure**: If power negotiation fails (e.g., < 71W), transitions to **State 4**.
+  - **Failure**: If power negotiation fails (e.g., duty cycle does not match 71W), transitions to **State 4**.
 
 ### State 3: Normal Operation (High Power)
 
