@@ -7,10 +7,11 @@ This project implements a Power over Ethernet (PoE) power management controller 
 ## Features
 
 - **Power Negotiation Monitoring**: continuously monitors the T2P and PWGD signals from the LTC4294 to determine the available power budget.
+- **Temperature Monitoring**: Added PA3 as a temperature acquisition channel, with hardware-friendly 32768-times average filtering (bit-shift division) to smooth the readings.
 - **Soft-Start & Sequence Control**: Manages the enable signals for the DC-DC converter and output relay to prevent inrush current and ensure stable startup.
 - **Status Indication**: LED blink patterns indicate the system's operating state (Waiting, Negotiating, Power Good, or Fault).
 - **Protection**: Includes an independent watchdog (IWDG) and fault detection logic to disconnect power in case of negotiation failure or instability.
-- **DMA-Optimized**: Uses DMA for ADC sampling and UART logging to minimize CPU usage.
+- **DMA-Optimized**: Uses DMA for multi-channel (3-channel) ADC sampling and UART logging to minimize CPU usage.
 
 ## Hardware Configuration
 
@@ -23,6 +24,7 @@ The system is based on an STM32 microcontroller (e.g., STM32F0/G0 series) runnin
 | PA0 | **T2P**       | ADC   | Sample LTC4294 T2P signal (Power availability)   |
 | PA1 | **PWGD**      | ADC   | Sample LTC4294 Power Good signal (>1.5V = Good)  |
 | PA2 | **Powerkeyin**| In    | Input Control Signal (Active Low/High Config)    |
+| PA3 | **Temperature**| ADC  | Sample temperature signal (filtered with 32768-times average to obtain `uADC_Temprature_Average`) |
 | PA4 | **LB16F1**    | Out   | LED Control Indicator (Follows Powerkeyinstate)  |
 | PA5 | **AP**        | Out   | AP Sequence Output Control                       |
 | PA6 | **DC-DC EN**  | Out   | DC-DC Enable Control (**Low** = Enable)          |

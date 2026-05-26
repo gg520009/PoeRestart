@@ -41,13 +41,17 @@
 
 /* Private variables ---------------------------------------------------------*/
 volatile uint8_t uTIM1_Interrupt_Flag = 0; /* Flag for TIM1 50us Interrupt */
-volatile uint16_t uADC_Value[2] = {0}; /* Changed to 16-bit to match DMA HalfWord alignment */
+volatile uint16_t uADC_Value[3] = {0}; /* Expanded to 3 to accommodate Temperature channel */
 volatile uint32_t uADC_T2P_Average = 0; 
 volatile uint32_t uADC_PWGD_Average = 0;
 volatile uint32_t uADC_Sum_T2P = 0;
 volatile uint32_t uADC_Sum_PWGD = 0;
 volatile uint32_t uADC_Value_T2P = 0;
 volatile uint32_t uADC_Value_PWGD = 0;
+volatile uint32_t uADC_Value_Temprature = 0; /* Added for PA3 temperature channel */
+volatile uint32_t uADC_Sum_Temprature = 0;    /* Accumulator for temperature averaging */
+volatile uint32_t uADC_Temprature_Count = 0;  /* Counter for temperature averaging */
+volatile uint32_t uADC_Temprature_Average = 0;/* Final averaged temperature value */
 volatile uint16_t uADC_Count = 0;
 volatile uint32_t uADC_Processing_Value = 0; /* New variable for user processing */
 volatile uint32_t uADC_Sum = 0; /* Accumulator for averaging */
@@ -148,8 +152,8 @@ int main(void)
   LB16F1_LED_OFF();
   AP_OFF(); 
 
-  /* Enable ADC DMA for 2 Channels */
-  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)uADC_Value, 2);
+  /* Enable ADC DMA for 3 Channels */
+  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)uADC_Value, 3);
   /* Disable DMA Interrupts to prevent CPU overload (92kHz IRQ flood) */
   __HAL_DMA_DISABLE_IT(&hdma_adc1, DMA_IT_TC | DMA_IT_HT | DMA_IT_TE);
   /* Disable ADC Interrupts */
@@ -209,6 +213,17 @@ int main(void)
       Powerkeyin = HAL_GPIO_ReadPin(Powerkeyin_GPIO_Port, Powerkeyin_Pin);
       uADC_Value_T2P = uADC_Value[0]&0x0FFF;
       uADC_Value_PWGD = uADC_Value[1]&0x0FFF;
+      uADC_Value_Temprature = uADC_Value[2]&0x0FFF;
+
+      /* Temperature Average Filtering: 32768 samples (32768 * 50us = 1.6384s) */
+      uADC_Sum_Temprature += uADC_Value_Temprature;
+      uADC_Temprature_Count++;
+      if (uADC_Temprature_Count >= 32768)
+      {
+          uADC_Temprature_Average = uADC_Sum_Temprature >> 15; /* 32768 = 2^15 */
+          uADC_Sum_Temprature = 0;
+          uADC_Temprature_Count = 0;
+      }
       //HAL_UART_Transmit(&huart1, (uint8_t*)"int\n", 4, 100); 
 
 /*AP power on off control*/
@@ -515,7 +530,7 @@ static void MX_ADC1_Init(void)
   hadc1.Init.LowPowerAutoWait = DISABLE;
   hadc1.Init.LowPowerAutoPowerOff = DISABLE;
   hadc1.Init.ContinuousConvMode = ENABLE;
-  hadc1.Init.NbrOfConversion = 2;
+  hadc1.Init.NbrOfConversion = 3;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
@@ -557,6 +572,16 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_1;
   sConfig.Rank = ADC_REGULAR_RANK_2;
+  sConfig.SamplingTime = ADC_SAMPLINGTIME_COMMON_1;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_3;
+  sConfig.Rank = ADC_REGULAR_RANK_3;
   sConfig.SamplingTime = ADC_SAMPLINGTIME_COMMON_1;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
