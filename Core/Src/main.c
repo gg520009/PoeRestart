@@ -233,7 +233,10 @@ int main(void)
 
       if (Powerkeyin == 0)
       {
-          pk_timer_high = 0;
+          if (pk_timer_high > 0)
+          {
+              pk_timer_high--;
+          }
           pk_timer_low++;
           if (pk_timer_low >= 10000)
           {
@@ -243,7 +246,10 @@ int main(void)
       }
       else
       {
-          pk_timer_low = 0;
+          if (pk_timer_low > 0)
+          {
+              pk_timer_low--;
+          }
           pk_timer_high++;
           if (pk_timer_high >= 10000)
           {
