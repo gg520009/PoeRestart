@@ -52,6 +52,7 @@ volatile uint32_t uADC_Value_Temprature = 0; /* Added for PA3 temperature channe
 volatile uint32_t uADC_Sum_Temprature = 0;    /* Accumulator for temperature averaging */
 volatile uint32_t uADC_Temprature_Count = 0;  /* Counter for temperature averaging */
 volatile uint32_t uADC_Temprature_Average = 0;/* Final averaged temperature value */
+volatile uint8_t TempOkFlag = 1;              /* Temperature OK flag: 1 = Normal/Warm, 0 = Below -30C */
 volatile uint16_t uADC_Count = 0;
 volatile uint32_t uADC_Processing_Value = 0; /* New variable for user processing */
 volatile uint32_t uADC_Sum = 0; /* Accumulator for averaging */
@@ -223,6 +224,48 @@ int main(void)
           uADC_Temprature_Average = uADC_Sum_Temprature >> 15; /* 32768 = 2^15 */
           uADC_Sum_Temprature = 0;
           uADC_Temprature_Count = 0;
+
+          /* 
+           * 温度与12位ADC采样值的对应关系 (每5摄氏度):
+           * -45 C: 3268 (0xCC4)
+           * -40 C: 3038 (0xBDE)
+           * -35 C: 2783 (0xADF)
+           * -30 C: 2510 (0x9CE)  <- TempOkFlag = 0 判定点 (低于 -30 C, ADC值 > 2510)
+           * -25 C: 2231 (0x8B7)
+           * -20 C: 1957 (0x7A5)  <- TempOkFlag = 1 判定点 (高于 -20 C, ADC值 < 1957)
+           * -15 C: 1695 (0x69F)
+           * -10 C: 1454 (0x5AE)
+           *  -5 C: 1238 (0x4D6)
+           *   0 C: 1049 (0x419)
+           *   5 C:  885 (0x375)
+           *  10 C:  745 (0x2E9)
+           *  15 C:  627 (0x273)
+           *  20 C:  528 (0x210)
+           *  25 C:  445 (0x1BD)
+           *  30 C:  376 (0x178)
+           *  35 C:  319 (0x13F)
+           *  40 C:  271 (0x10F)
+           *  45 C:  231 (0x0E7)
+           *  50 C:  198 (0x0C6)
+           *  55 C:  170 (0x0AA)
+           *  60 C:  146 (0x092)
+           *  65 C:  127 (0x07F)
+           *  70 C:  110 (0x06E)
+           *  75 C:   96 (0x060)
+           *  80 C:   84 (0x054)
+           *  85 C:   73 (0x049)
+           *  90 C:   65 (0x041)
+           *  95 C:   57 (0x039)
+           * 100 C:   51 (0x033)
+           */
+          if (uADC_Temprature_Average > 2510) /* 温度低于 -30 C (电阻大，ADC采样值更高) */
+          {
+              TempOkFlag = 0;
+          }
+          else if (uADC_Temprature_Average < 1957) /* 温度高于 -20 C (电阻小，ADC采样值更低) */
+          {
+              TempOkFlag = 1;
+          }
       }
       //HAL_UART_Transmit(&huart1, (uint8_t*)"int\n", 4, 100); 
 
@@ -258,67 +301,93 @@ int main(void)
           }
       }
       /*LB16F1 Key led control*/
+      static uint32_t lb_led_flash_timer = 0;
       if (Powerkeyinstate == 1)
       {
-          LB16F1_LED_ON();
+          if (TempOkFlag == 1)
+          {
+              LB16F1_LED_ON();
+              lb_led_flash_timer = 0;
+          }
+          else /* TempOkFlag == 0 */
+          {
+              lb_led_flash_timer++;
+              if (lb_led_flash_timer < 20000) /* 1s ON (20000 ticks * 50us) */
+              {
+                  LB16F1_LED_ON();
+              }
+              else if (lb_led_flash_timer < 40000) /* 1s OFF */
+              {
+                  LB16F1_LED_OFF();
+              }
+              else
+              {
+                  lb_led_flash_timer = 0;
+                  LB16F1_LED_ON();
+              }
+          }
       }
       else
       {
           LB16F1_LED_OFF();
+          lb_led_flash_timer = 0;
       }
 
       /* AP Sequence Logic */
-      /* Edge Detection */
-      if (Powerkeyinstate != Powerkeyinstate_prev)
+      if (TempOkFlag == 1)
       {
-          if (Powerkeyinstate == 1) /* 0 -> 1 */
+          /* Edge Detection */
+          if (Powerkeyinstate != Powerkeyinstate_prev)
           {
-               ap_target_delay = 6000; /* 300ms */
+              if (Powerkeyinstate == 1) /* 0 -> 1 */
+              {
+                   ap_target_delay = 6000; /* 300ms */
+              }
+              else /* 1 -> 0 */
+              {
+                   ap_target_delay = 160000; /* 8000ms */
+              }
+              Powerkeyinstate_prev = Powerkeyinstate;
+              ap_seq_state = 1; /* Start Sequence */
+              ap_seq_timer = 0;
           }
-          else /* 1 -> 0 */
+
+          /* State Machine */
+          switch (ap_seq_state)
           {
-               ap_target_delay = 160000; /* 8000ms */
+              case 0: /* IDLE */
+                  break;
+
+              case 1: /* OFF 10ms */
+                  AP_OFF();
+                  ap_seq_timer++;
+                  if (ap_seq_timer >= 200) /* 10ms */
+                  {
+                      ap_seq_timer = 0;
+                      ap_seq_state = 2;
+                  }
+                  break;
+
+              case 2: /* ON Delay */
+                  AP_ON();
+                  ap_seq_timer++;
+                  if (ap_seq_timer >= ap_target_delay)
+                  {
+                      ap_seq_timer = 0;
+                      ap_seq_state = 3;
+                  }
+                  break;
+
+              case 3: /* OFF 10ms */
+                  AP_OFF();
+                  ap_seq_timer++;
+                  if (ap_seq_timer >= 200) /* 10ms */
+                  {
+                      ap_seq_timer = 0;
+                      ap_seq_state = 0; /* Back to IDLE */
+                  }
+                  break;
           }
-          Powerkeyinstate_prev = Powerkeyinstate;
-          ap_seq_state = 1; /* Start Sequence */
-          ap_seq_timer = 0;
-      }
-
-      /* State Machine */
-      switch (ap_seq_state)
-      {
-          case 0: /* IDLE */
-              break;
-
-          case 1: /* OFF 10ms */
-              AP_OFF();
-              ap_seq_timer++;
-              if (ap_seq_timer >= 200) /* 10ms */
-              {
-                  ap_seq_timer = 0;
-                  ap_seq_state = 2;
-              }
-              break;
-
-          case 2: /* ON Delay */
-              AP_ON();
-              ap_seq_timer++;
-              if (ap_seq_timer >= ap_target_delay)
-              {
-                  ap_seq_timer = 0;
-                  ap_seq_state = 3;
-              }
-              break;
-
-          case 3: /* OFF 10ms */
-              AP_OFF();
-              ap_seq_timer++;
-              if (ap_seq_timer >= 200) /* 10ms */
-              {
-                  ap_seq_timer = 0;
-                  ap_seq_state = 0; /* Back to IDLE */
-              }
-              break;
       }
 
       /*UART send for debug*/
@@ -328,7 +397,7 @@ int main(void)
       if(usart_timer > 100000)
       {
     	  usart_timer = 0;
-    	  HAL_UART_Transmit_DMA(&huart1, (uint8_t*)&uADC_T2P_Average, 4);
+    	  HAL_UART_Transmit_DMA(&huart1, (uint8_t*)&uADC_Temprature_Average, 4);
       }
       #endif
 
@@ -349,7 +418,16 @@ int main(void)
              //HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET);//dcdc en
              //HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_SET); //relay close
              RELAY_CLOSE();
-             DCDC_ENABLE();
+             /*
+             if (TempOkFlag == 1)
+             {
+                 DCDC_ENABLE();
+             }
+             else
+             {
+                 DCDC_DISABLE();
+             }
+             */
           } 
           else 
           {
@@ -434,7 +512,14 @@ int main(void)
           /* PA6 High, PA7 High */
           /* PA6 High, PA7 High */
           RELAY_CLOSE();
-          DCDC_ENABLE(); //relay close and dcdc en
+          if (TempOkFlag == 1)
+          {
+              DCDC_ENABLE(); //relay close and dcdc en
+          }
+          else
+          {
+              DCDC_DISABLE();
+          }
           break;
 
         case 4: /* Low Power / Fail Mode */

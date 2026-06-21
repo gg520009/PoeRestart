@@ -40,7 +40,7 @@ The system runs a state machine on a 50µs time base.
 
 - **Indicator**: Fast Blink (1 Hz / 0.5s ON, 0.5s OFF)
 - **Behavior**: Monitors `PA1` (PWGD).
-  - If PWGD > 1.5V, it tentatively enables the DC-DC and Relay.
+  - If PWGD > 1.5V, it tentatively enables the DC-DC (requires `TempOkFlag` == 1) and Relay.
   - If PWGD remains stable (> 1.5V) for ~3 seconds, the system transitions to **State 2**.
   - If PWGD is unstable, it keeps the output disabled.
 
@@ -58,7 +58,7 @@ The system runs a state machine on a 50µs time base.
 
 - **Indicator**: Slow Blink (~0.16 Hz / 3s ON, 3s OFF)
 - **Behavior**:
-  - **Power Output**: **Enabled** (PA6 Low, PA7 High).
+  - **Power Output**: Closes the relay (PA7 High) and enables/disables the DC-DC (PA6, enabled active-low only if `TempOkFlag` == 1).
   - The system remains in this state as long as power is stable.
 
 ### State 4: Fault / Low Power Mode
@@ -79,13 +79,14 @@ The system runs additional control tasks in parallel with the main state machine
 
 #### 2. LB16F1 Indicator (PA4)
 
-- Directly reflects the `Powerkeyinstate`.
-- **ON**: `Powerkeyinstate` == 1.
+- Reflects `Powerkeyinstate` and `TempOkFlag`.
+- **ON (Solid)**: `Powerkeyinstate` == 1 and `TempOkFlag` == 1.
+- **Flashing (1s ON / 1s OFF)**: `Powerkeyinstate` == 1 and `TempOkFlag` == 0.
 - **OFF**: `Powerkeyinstate` == 0.
 
 #### 3. AP Sequence Control (PA5)
 
-Non-blocking sequence trigger on `Powerkeyinstate` transitions:
+AP Sequence Control only executes when `TempOkFlag` == 1. When active, it triggers a non-blocking sequence on `Powerkeyinstate` transitions:
 
 - **0 -> 1 Transition**: `OFF (10ms)` -> `ON (300ms)` -> `OFF (10ms)` -> `IDLE (OFF)`.
 - **1 -> 0 Transition**: `OFF (10ms)` -> `ON (8000ms)` -> `OFF (10ms)` -> `IDLE (OFF)`.

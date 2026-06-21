@@ -40,7 +40,7 @@
 
 - **指示**: 快闪 (1 Hz / 0.5s 亮, 0.5s 灭)
 - **行为**: 监控 `PA1` (PWGD)。
-  - 如果 PWGD > 1.5V，尝试使能 DC-DC 和继电器。
+  - 如果 PWGD > 1.5V，尝试使能 DC-DC（需满足 `TempOkFlag` == 1）和继电器。
   - 如果 PWGD 大约 3 秒保持稳定（> 1.5V），系统进入 **状态 2**。
   - 如果 PWGD 不稳定，保持输出禁用。
 
@@ -58,7 +58,7 @@
 
 - **指示**: 慢闪 (~0.16 Hz / 3s 亮, 3s 灭)
 - **行为**:
-  - **电源输出**: **已使能** (PA6 低, PA7 高)。
+  - **电源输出**: 闭合继电器 (PA7 高)，并根据 `TempOkFlag` 开关 DC-DC（PA6，仅当其为 1 时低电平使能）。
   - 只要电源稳定，系统将保持在此状态。
 
 ### 状态 4: 故障 / 低功耗模式
@@ -79,13 +79,14 @@
 
 #### 2. LB16F1 指示灯 (PA4)
 
-- 直接反映 `Powerkeyinstate`。
-- **亮**: `Powerkeyinstate` == 1.
-- **灭**: `Powerkeyinstate` == 0.
+- 反映 `Powerkeyinstate` 和 `TempOkFlag`。
+- **常亮**: `Powerkeyinstate` == 1 且 `TempOkFlag` == 1.
+- **交替闪烁 (1秒亮/1秒灭)**: `Powerkeyinstate` == 1 且 `TempOkFlag` == 0.
+- **常灭**: `Powerkeyinstate` == 0.
 
 #### 3. AP 时序控制 (PA5)
 
-在 `Powerkeyinstate` 变迁时触发非阻塞时序：
+AP 时序控制仅在 `TempOkFlag` == 1 时生效。当其为 1 且 `Powerkeyinstate` 变迁时触发非阻塞时序：
 
 - **0 -> 1 变迁**: `关 (10ms)` -> `开 (300ms)` -> `关 (10ms)` -> `空闲 (关)`.
 - **1 -> 0 变迁**: `关 (10ms)` -> `开 (8000ms)` -> `关 (10ms)` -> `空闲 (关)`.
