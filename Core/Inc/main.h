@@ -61,13 +61,15 @@ void Error_Handler(void);
 #define led_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
+#define ColdWeatherBoard  /* Low Temperature Board (低温版) */
+
 #define RELAY_CLOSE()   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_RESET)
 #define RELAY_OPEN()    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_SET)
 
-#define DCDC_ENABLE()   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET)
-#define DCDC_DISABLE()  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_SET)
-//#define DCDC_ENABLE()   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_SET)
-//#define DCDC_DISABLE()  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET)
+#define DCDC_ENABLE()   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_SET)
+#define DCDC_DISABLE()  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET)
+//#define DCDC_ENABLE()   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET)
+//#define DCDC_DISABLE()  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_SET)
 
 #define Powerkeyin_Pin GPIO_PIN_2
 #define Powerkeyin_GPIO_Port GPIOA

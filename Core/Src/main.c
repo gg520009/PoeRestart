@@ -76,7 +76,11 @@ UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
 __attribute__((section(".version_info"))) __attribute__((used))
-const uint8_t version_string[] = "NP300B.0.40_V3.1_20260525";
+#ifdef ColdWeatherBoard
+const uint8_t version_string[] = "NP300B.0.40_V3.1_cold_20260628";
+#else
+const uint8_t version_string[] = "NP300B.0.40_V3.1_warm_20260628";
+#endif
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -227,12 +231,13 @@ int main(void)
 
           /* 
            * 温度与12位ADC采样值的对应关系 (每5摄氏度):
-           * -45 C: 3268 (0xCC4)
+           * -50 C: 3470 (0xD8E)  <- 常温版 TempOkFlag = 0 判定点 (低于 -50 C, ADC值 > 3470)
+           * -45 C: 3268 (0xCC4)  <- 常温版 TempOkFlag = 1 判定点 (高于 -45 C, ADC值 < 3268)
            * -40 C: 3038 (0xBDE)
            * -35 C: 2783 (0xADF)
-           * -30 C: 2510 (0x9CE)  <- TempOkFlag = 0 判定点 (低于 -30 C, ADC值 > 2510)
+           * -30 C: 2510 (0x9CE)  <- 低温版 TempOkFlag = 0 判定点 (低于 -30 C, ADC值 > 2510)
            * -25 C: 2231 (0x8B7)
-           * -20 C: 1957 (0x7A5)  <- TempOkFlag = 1 判定点 (高于 -20 C, ADC值 < 1957)
+           * -20 C: 1957 (0x7A5)  <- 低温版 TempOkFlag = 1 判定点 (高于 -20 C, ADC值 < 1957)
            * -15 C: 1695 (0x69F)
            * -10 C: 1454 (0x5AE)
            *  -5 C: 1238 (0x4D6)
@@ -258,14 +263,25 @@ int main(void)
            *  95 C:   57 (0x039)
            * 100 C:   51 (0x033)
            */
-          if (uADC_Temprature_Average > 2510) /* 温度低于 -30 C (电阻大，ADC采样值更高) */
+#ifdef ColdWeatherBoard
+          if (uADC_Temprature_Average > 2510) /* 低温版：温度低于 -30 C (电阻大，ADC采样值更高) */
           {
               TempOkFlag = 0;
           }
-          else if (uADC_Temprature_Average < 1957) /* 温度高于 -20 C (电阻小，ADC采样值更低) */
+          else if (uADC_Temprature_Average < 1957) /* 低温版：温度高于 -20 C (电阻小，ADC采样值更低) */
           {
               TempOkFlag = 1;
           }
+#else
+          if (uADC_Temprature_Average > 3470) /* 常温版：温度低于 -50 C (电阻大，ADC采样值更高) */
+          {
+              TempOkFlag = 0;
+          }
+          else if (uADC_Temprature_Average < 3268) /* 常温版：温度高于 -45 C (电阻小，ADC采样值更低) */
+          {
+              TempOkFlag = 1;
+          }
+#endif
       }
       //HAL_UART_Transmit(&huart1, (uint8_t*)"int\n", 4, 100); 
 
@@ -847,7 +863,8 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6|GPIO_PIN_7, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(led_GPIO_Port, led_Pin, GPIO_PIN_SET); /* Default OFF (High-Z) */

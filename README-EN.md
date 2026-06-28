@@ -27,7 +27,7 @@ The system is based on an STM32 microcontroller (e.g., STM32F0/G0 series) runnin
 | PA3 | **Temperature**| ADC  | Sample temperature signal (filtered with 32768-times average to obtain `uADC_Temprature_Average`) |
 | PA4 | **LB16F1**    | Out   | LED Control Indicator (Follows Powerkeyinstate)  |
 | PA5 | **AP**        | Out   | AP Sequence Output Control                       |
-| PA6 | **DC-DC EN**  | Out   | DC-DC Enable Control (**Low** = Enable)          |
+| PA6 | **DC-DC EN**  | Out   | DC-DC Enable Control (**High** = Enable)         |
 | PA7 | **RELAY**     | Out   | Output Relay Control (**High** = Close/On)       |
 | PB0 | **LED**       | Out   | Status LED (Open-Drain, Low = On)                |
 | PB3 | **USART1_TX** | UART  | Debug Log Output (115200 bps)                    |
@@ -58,14 +58,14 @@ The system runs a state machine on a 50µs time base.
 
 - **Indicator**: Slow Blink (~0.16 Hz / 3s ON, 3s OFF)
 - **Behavior**:
-  - **Power Output**: Closes the relay (PA7 High) and enables/disables the DC-DC (PA6, enabled active-low only if `TempOkFlag` == 1).
+  - **Power Output**: Closes the relay (PA7 High) and enables/disables the DC-DC (PA6, enabled active-high only if `TempOkFlag` == 1).
   - The system remains in this state as long as power is stable.
 
 ### State 4: Fault / Low Power Mode
 
 - **Indicator**: LED Off
 - **Behavior**:
-  - **Power Output**: **Disabled** (PA6 High, PA7 Low).
+  - **Power Output**: **Disabled** (PA6 Low, PA7 Low).
   - The system stays in this state for 3 seconds before resetting to **State 1**.
 
 ### Additional Control Logic (Parallel)
