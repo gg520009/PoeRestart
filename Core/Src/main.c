@@ -527,7 +527,7 @@ int main(void)
           //mcu will not power off,case 3 should return to case 1 after 10s//
           /* PA6 High, PA7 High */
           /* PA6 High, PA7 High */
-          RELAY_CLOSE();
+          RELAY_OPEN();
           if (TempOkFlag == 1)
           {
               DCDC_ENABLE(); //relay close and dcdc en
