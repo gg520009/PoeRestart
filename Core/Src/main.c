@@ -21,7 +21,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <stdio.h>
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -410,10 +411,33 @@ int main(void)
       #ifdef MY_DE_BUG
       static uint32_t usart_timer = 0;
       usart_timer++;
-      if(usart_timer > 100000)
+      if(usart_timer >= 100000) /* 5 seconds (100000 * 50us) */
       {
-    	  usart_timer = 0;
-    	  HAL_UART_Transmit_DMA(&huart1, (uint8_t*)&uADC_Temprature_Average, 4);
+          usart_timer = 0;
+          if (huart1.gState == HAL_UART_STATE_READY)
+          {
+              static char dbg_buf[512];
+              snprintf(dbg_buf, sizeof(dbg_buf),
+                       "\r\n==================== DEBUG INFO (5s) ====================\r\n"
+                       "1. Temp ADC Avg (NTC温度采样平均, ADC_IN3/PA3)   : %lu\r\n"
+                       "2. T2P ADC Avg  (T2P采样平均, ADC_IN0/PA0)       : %lu\r\n"
+                       "3. PWGD ADC Raw (PWGD采样原始值, ADC_IN1/PA1)    : %lu\r\n"
+                       "4. PwrKey State (电源键消抖后状态, PA2)          : %d (0:OFF, 1:ON)\r\n"
+                       "5. Temp OK Flag (温度判断标志位)                 : %d (0:低温保护, 1:正常)\r\n"
+                       "6. Main State   (主状态机状态, state_main)       : %d\r\n"
+                       "7. AP Seq State (AP上下电序列状态, ap_seq_state) : %d\r\n"
+                       "8. PwrKey Pin   (电源键引脚电平, PA2)            : %d (0:按下, 1:释放)\r\n"
+                       "=========================================================\r\n",
+                       (unsigned long)uADC_Temprature_Average,
+                       (unsigned long)uADC_T2P_Average,
+                       (unsigned long)uADC_Value_PWGD,
+                       (int)Powerkeyinstate,
+                       (int)TempOkFlag,
+                       (int)state_main,
+                       (int)ap_seq_state,
+                       (int)Powerkeyin);
+              HAL_UART_Transmit_DMA(&huart1, (uint8_t*)dbg_buf, strlen(dbg_buf));
+          }
       }
       #endif
 
