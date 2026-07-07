@@ -78,9 +78,9 @@ UART_HandleTypeDef huart1;
 /* USER CODE BEGIN PV */
 __attribute__((section(".version_info"))) __attribute__((used))
 #ifdef ColdWeatherBoard
-const uint8_t version_string[] = "NP300B.0.40_V3.1_cold_20260628";
+const uint8_t version_string[] = "NP300B.0.40_V3.1_cold_20260707";
 #else
-const uint8_t version_string[] = "NP300B.0.40_V3.1_warm_20260628";
+const uint8_t version_string[] = "NP300B.0.40_V3.1_warm_20260707";
 #endif
 /* USER CODE END PV */
 
@@ -152,9 +152,13 @@ int main(void)
   MX_IWDG_Init();
   /* USER CODE BEGIN 2 */
   
-  /* Initial State: PA6 High, PA7 High */
+  /* Initial State: PA6 Low, PA7 High */
   RELAY_CLOSE();
+#ifdef ColdWeatherBoard
   DCDC_DISABLE();
+#else
+  DCDC_ENABLE();
+#endif
   LB16F1_LED_OFF();
   AP_OFF(); 
 
@@ -419,14 +423,14 @@ int main(void)
               static char dbg_buf[512];
               snprintf(dbg_buf, sizeof(dbg_buf),
                        "\r\n==================== DEBUG INFO (5s) ====================\r\n"
-                       "1. Temp ADC Avg (NTC温度采样平均, ADC_IN3/PA3)   : %lu\r\n"
-                       "2. T2P ADC Avg  (T2P采样平均, ADC_IN0/PA0)       : %lu\r\n"
-                       "3. PWGD ADC Raw (PWGD采样原始值, ADC_IN1/PA1)    : %lu\r\n"
-                       "4. PwrKey State (电源键消抖后状态, PA2)          : %d (0:OFF, 1:ON)\r\n"
-                       "5. Temp OK Flag (温度判断标志位)                 : %d (0:低温保护, 1:正常)\r\n"
-                       "6. Main State   (主状态机状态, state_main)       : %d\r\n"
-                       "7. AP Seq State (AP上下电序列状态, ap_seq_state) : %d\r\n"
-                       "8. PwrKey Pin   (电源键引脚电平, PA2)            : %d (0:按下, 1:释放)\r\n"
+                       "1. Temp ADC Avg (NTC Temp ADC Avg, ADC_IN3/PA3)  : %lu\r\n"
+                       "2. T2P ADC Avg  (T2P ADC Avg, ADC_IN0/PA0)       : %lu\r\n"
+                       "3. PWGD ADC Raw (PWGD ADC Raw, ADC_IN1/PA1)      : %lu\r\n"
+                       "4. PwrKey State (Power Key Debounced State, PA2) : %d (0:OFF, 1:ON)\r\n"
+                       "5. Temp OK Flag (Temp OK Flag)                   : %d (0:Low Temp Prot, 1:Normal)\r\n"
+                       "6. Main State   (Main State Machine State)       : %d\r\n"
+                       "7. AP Seq State (AP Power Seq State)             : %d\r\n"
+                       "8. PwrKey Pin   (Power Key Pin Level, PA2)       : %d (0:Pressed, 1:Released)\r\n"
                        "=========================================================\r\n",
                        (unsigned long)uADC_Temprature_Average,
                        (unsigned long)uADC_T2P_Average,
