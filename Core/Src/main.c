@@ -21,7 +21,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <stdio.h>
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -71,7 +72,7 @@ UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
 __attribute__((section(".version_info"))) __attribute__((used))
-const uint8_t version_string[] = "NP300B.0.40_V3.0_20260307";
+const uint8_t version_string[] = "NP300B.0.40_V3.0_20260707";
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -142,9 +143,9 @@ int main(void)
   MX_IWDG_Init();
   /* USER CODE BEGIN 2 */
   
-  /* Initial State: PA6 High, PA7 High */
+  /* Initial State: PA6 Low, PA7 High */
   RELAY_CLOSE();
-  DCDC_DISABLE();
+  DCDC_ENABLE();
   LB16F1_LED_OFF();
   AP_OFF(); 
 
@@ -218,7 +219,10 @@ int main(void)
 
       if (Powerkeyin == 0)
       {
-          pk_timer_high = 0;
+          if (pk_timer_high > 0)
+          {
+              pk_timer_high--;
+          }
           pk_timer_low++;
           if (pk_timer_low >= 10000)
           {
@@ -228,7 +232,10 @@ int main(void)
       }
       else
       {
-          pk_timer_low = 0;
+          if (pk_timer_low > 0)
+          {
+              pk_timer_low--;
+          }
           pk_timer_high++;
           if (pk_timer_high >= 10000)
           {
@@ -304,10 +311,29 @@ int main(void)
       #ifdef MY_DE_BUG
       static uint32_t usart_timer = 0;
       usart_timer++;
-      if(usart_timer > 100000)
+      if(usart_timer >= 100000) /* 5 seconds (100000 * 50us) */
       {
-    	  usart_timer = 0;
-    	  HAL_UART_Transmit_DMA(&huart1, (uint8_t*)&uADC_T2P_Average, 4);
+          usart_timer = 0;
+          if (huart1.gState == HAL_UART_STATE_READY)
+          {
+              static char dbg_buf[512];
+              snprintf(dbg_buf, sizeof(dbg_buf),
+                       "\r\n==================== DEBUG INFO (5s) ====================\r\n"
+                       "2. T2P ADC Avg  (T2P ADC Avg, ADC_IN0/PA0)       : %lu\r\n"
+                       "3. PWGD ADC Raw (PWGD ADC Raw, ADC_IN1/PA1)      : %lu\r\n"
+                       "4. PwrKey State (Power Key Debounced State, PA2) : %d (0:OFF, 1:ON)\r\n"
+                       "6. Main State   (Main State Machine State)       : %d\r\n"
+                       "7. AP Seq State (AP Power Seq State)             : %d\r\n"
+                       "8. PwrKey Pin   (Power Key Pin Level, PA2)       : %d (0:Pressed, 1:Released)\r\n"
+                       "=========================================================\r\n",
+                       (unsigned long)uADC_T2P_Average,
+                       (unsigned long)uADC_Value_PWGD,
+                       (int)Powerkeyinstate,
+                       (int)state_main,
+                       (int)ap_seq_state,
+                       (int)Powerkeyin);
+              HAL_UART_Transmit_DMA(&huart1, (uint8_t*)dbg_buf, strlen(dbg_buf));
+          }
       }
       #endif
 
@@ -410,10 +436,10 @@ int main(void)
           }
 
           //mcu will not power off,case 3 should return to case 1 after 10s//
-          /* PA6 High, PA7 High */
-          /* PA6 High, PA7 High */
-          RELAY_CLOSE();
-          DCDC_ENABLE(); //relay close and dcdc en
+          /* PA6 Low, PA7 Low */
+          /* PA6 Low, PA7 Low */
+          RELAY_OPEN(); // relay open to reduce power consumption
+          DCDC_ENABLE(); // dcdc en
           break;
 
         case 4: /* Low Power / Fail Mode */
@@ -425,8 +451,8 @@ int main(void)
         	  state4_timer = 0;
         	  state_main = 1;
           }
-          /* PA6 Low, PA7 Low */
-          /* PA6 Low, PA7 Low */
+          /* PA6 High, PA7 Low */
+          /* PA6 High, PA7 Low */
           RELAY_OPEN();
           DCDC_DISABLE(); //relay open and dcdc off
           break;
@@ -731,7 +757,8 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6|GPIO_PIN_7, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(led_GPIO_Port, led_Pin, GPIO_PIN_SET); /* Default OFF (High-Z) */
